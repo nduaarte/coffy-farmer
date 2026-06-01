@@ -1,26 +1,28 @@
-# Coffy Farmer — Case Study
+# Coffy Farmer: Case Study
 
-> A browser extension + admin dashboard ecosystem for automating farming in WolvesVille, with a ticket-based access system and real-time session monitoring.
+> Browser extension + admin panel for automating farming in WolvesVille, with ticket-based access control and real-time session monitoring.
 
 ---
 
 ## Overview
 
-Coffy Farmer is a browser extension that automates farming actions in the online game WolvesVille. The project grew into a full product with paying users, requiring me to build an entire backend infrastructure around it — access control, session tracking, subscription management, and an admin panel to operate everything.
+Coffy Farmer started as a browser extension to automate repetitive farming in WolvesVille. At some point it had enough paying users that I had to actually treat it as a product. That meant building the whole operation around it: access control, session tracking, subscription management, and a panel to run everything without jumping between tools.
 
-**Users:** Active paying players with subscription-based access  
+**Users:** Paying players with subscription-based access  
 **Stack:** Browser Extension · Supabase (PostgreSQL + Auth + Edge Functions) · Vanilla HTML/CSS/JS
 
 ---
 
 ## The Problem
 
-WolvesVille players wanted to automate repetitive farming tasks without being detected or losing progress. Beyond the extension itself, the real challenge was **operating it as a product**:
+The extension itself was the easy part. The harder problem was operating it: who has access, for how long, are they online right now, did they pay, did I deliver what they bought? None of that was solved by writing the extension alone.
 
-- How do I control who has access and for how long?
-- How do I know who's online and using the tool right now?
-- How do I manage subscriptions and payments manually without a complex e-commerce setup?
-- How do I communicate with users via Discord without leaving the admin panel?
+The questions I had to answer:
+
+- How do I control access without building a full auth system?
+- How do I know who's online at any given moment?
+- How do I track manual payments and deliveries without an e-commerce setup?
+- How do I send Discord messages to users without leaving the admin panel?
 
 ---
 
@@ -28,89 +30,94 @@ WolvesVille players wanted to automate repetitive farming tasks without being de
 
 ```
 ┌─────────────────────┐     ┌──────────────────────┐
-│  Browser Extension  │────▶│  Supabase (Backend)  │
-│  (Content Script)   │     │  - PostgreSQL         │
-└─────────────────────┘     │  - Auth (RLS)         │
-                            │  - Edge Functions     │
+│  Browser Extension  │────▶│  Supabase (Backend) │
+│  (Content Script)   │     │  - PostgreSQL        │
+└─────────────────────┘     │  - Auth (RLS)        │
+                            │  - Edge Functions    │
 ┌─────────────────────┐     └──────────┬───────────┘
 │    Admin Panel      │────────────────┘
 │  (HTML/CSS/JS)      │
 └─────────────────────┘
 ```
 
-The extension authenticates users via a **ticket code** — a short alphanumeric key with an expiry date. This avoids the need for traditional login flows inside the extension and makes access easy to grant, revoke, or transfer.
+Users authenticate via a **ticket code**: a short alphanumeric key with an expiry date. The extension validates it against Supabase on startup. No login screen, no password reset flow, no account creation.
 
 ---
 
 ## Key Technical Decisions
 
 ### 1. Ticket-based access instead of user accounts
-Rather than building a full auth system for end users, I designed a ticket system: each paying user receives a unique code with an expiry date. The extension validates the code against Supabase on startup. This kept the UX simple for users and gave me full control over access management.
 
-**Trade-off:** Less data per user, but simpler to operate and harder to share credentials (codes are single-use per session).
+Each paying user gets a unique code with an expiry date. Simple to generate, simple to revoke. The extension validates it on startup and blocks access if it's expired or invalid.
+
+The downside is less data per user. The upside is that I can grant, revoke, or extend access in seconds from the panel, without touching user accounts or sending password resets.
 
 ### 2. Supabase as the entire backend
-I used Supabase's REST API directly (no ORM, no separate server), relying on Row Level Security (RLS) to protect data and Edge Functions for Discord integration. This meant zero server maintenance and near-instant deployment.
 
-**Trade-off:** Less flexibility than a custom Node.js API, but dramatically faster to ship and maintain solo.
+I used Supabase's REST API directly, no ORM, no separate server. Row Level Security handles data protection, Edge Functions handle anything that needs a secret (like the Discord token). Zero infrastructure to maintain.
 
-### 3. Real-time session visibility via `player_status` view
-Instead of polling raw tables, I created a Supabase view that aggregates session data — online status, last access, timezone — into a single query. The admin panel polls this view every 30 seconds and renders it as a live dashboard.
+It's less flexible than a custom API, but for a solo project this size, flexibility wasn't the bottleneck. Speed of shipping was.
 
-**Trade-off:** The view adds a layer of abstraction that requires care when the underlying tables change, but it keeps the frontend clean and fast.
+### 3. `player_status` view for session monitoring
+
+Instead of querying raw tables on every refresh, I created a Supabase view that aggregates everything: online status, last access, timezone. The admin panel polls it every 30 seconds and renders it as a live table.
+
+The abstraction means I have to be careful when the underlying tables change, but it keeps the frontend query simple and fast.
 
 ### 4. Discord integration via Edge Functions
-Rather than exposing a bot token to the frontend, I built two Edge Functions (`send-dm`, `post-channel`) that act as a secure proxy. The admin panel sends requests with the user's Supabase JWT; the function validates it before touching the Discord API.
 
-**Trade-off:** Adds a cold-start latency to Discord actions, but keeps secrets server-side and auditable.
+The Discord bot token never touches the frontend. The admin panel calls two Edge Functions (`send-dm` and `post-channel`) with the user's Supabase JWT. The function validates the session before hitting the Discord API.
+
+Cold start adds a bit of latency, but the token stays server-side and every call is auditable.
 
 ---
 
-## Admin Panel Features
+## Admin Panel
 
-The panel is a single HTML file with no framework — intentionally lean to keep it fast and easy to maintain.
+The panel is a single HTML file with no framework. Intentionally lean so it's fast to load and easy to change.
 
 | Tab | What it does |
 |---|---|
 | **Sessions** | Live view of online players, last access time, timezone |
 | **Tickets** | Create, manage, and expire access codes |
-| **Subscriptions** | Track manual payment/item deliveries with completion flow |
-| **App Config** | Key-value config editor for the extension's behavior |
-| **Discord** | Send DMs or post to channels without leaving the panel |
+| **Subscriptions** | Track manual payments and item deliveries |
+| **App Config** | Key-value config editor for extension behavior |
+| **Discord** | Send DMs or post to channels directly from the panel |
 
-Notable UX decisions:
-- Expired tickets are **hidden by default** and loaded on demand — reduces noise and unnecessary queries
-- Copy-to-clipboard on ticket codes with a hover-reveal button
-- Auto-refresh every 30 seconds when the Sessions or Tickets tab is active
-- Animated modals with CSS transitions (no JS animation libraries)
+A few decisions worth noting:
+
+- Expired tickets are hidden by default and only loaded on demand. No reason to fetch history on every page load.
+- Ticket codes have a hover-reveal copy button so they're easy to grab without selecting text.
+- Auto-refresh runs every 30 seconds, but only on the active tab.
+- Modals animate with pure CSS transitions. No animation library.
 
 ---
 
 ## Challenges
 
-**Keeping the extension undetected:** The automation had to mimic natural user behavior — timing randomization, event simulation — to avoid being flagged by the game.
+**Keeping the extension undetected.** The automation had to look like a real user. That meant randomizing timing between actions and simulating proper browser events rather than triggering them programmatically in ways the game could fingerprint.
 
-**Manual subscription workflow:** Since payments were handled outside the platform (Discord, PIX), I needed a simple way to track who paid for what and confirm delivery. The Subscriptions tab was built specifically for this, with a one-click "Complete" action that timestamps the confirmation.
+**Manual subscription tracking.** Payments came in through Discord and PIX, outside the platform entirely. I needed a way to record who paid, for what, and confirm when the delivery happened. The Subscriptions tab handles this with a simple pending/complete flow and a timestamp on completion.
 
-**Single-file admin panel:** Keeping everything in one HTML file was a constraint I set intentionally for portability and simplicity. Managing state without a framework required careful organization of module-level variables and explicit render functions.
+**State management without a framework.** Keeping everything in one HTML file was a deliberate choice for portability. But as features grew, managing state with module-level variables and explicit render functions got harder to follow. It works, but it's the part I'd revisit first.
 
 ---
 
 ## Results
 
 - Multiple active paying subscribers
-- Real-time visibility into active sessions across different timezones
-- Zero server infrastructure costs (Supabase free tier handled the load)
-- Fully operational Discord notification pipeline from the admin panel
+- Full visibility into live sessions across timezones
+- Zero server costs (Supabase free tier covered the load)
+- Discord communication handled entirely from the admin panel
 
 ---
 
 ## What I'd do differently
 
-- Add proper logging/audit trail for ticket operations (currently no history of who created what)
-- Move the admin panel to a lightweight framework (React or even Preact) as the feature set grew — vanilla JS state management started showing its limits
-- Implement webhook-based session updates instead of polling to reduce Supabase read usage
+- Add an audit log for ticket operations. Right now there's no record of who created or modified what.
+- Move the admin panel to a lightweight framework. Vanilla JS was fine to start, but state management started showing cracks as more tabs and flows were added.
+- Replace polling with Supabase Realtime for session updates. Polling every 30 seconds works, but it's wasteful and adds unnecessary read volume.
 
 ---
 
-*This is a case study — source code is private. Available to discuss architecture and decisions in detail.*
+*Source code is private. Happy to discuss architecture and decisions in more detail.*
