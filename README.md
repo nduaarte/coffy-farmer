@@ -13,6 +13,14 @@ Coffy Farmer started as a browser extension to automate repetitive farming in Wo
 
 ---
 
+## The Extension
+
+![Coffy Farmer Extension](assets/extension.png)
+
+The extension runs directly in the browser alongside the game. Users authenticate with a ticket code, choose their region and farm mode, and hit Start. The XP ranking updates in real time, showing where each player sits in the last 7 days. Ticket validation happens on load and shows the status and remaining days right in the UI.
+
+---
+
 ## The Problem
 
 The extension itself was the easy part. The harder problem was operating it: who has access, for how long, are they online right now, did they pay, did I deliver what they bought? None of that was solved by writing the extension alone.
@@ -30,10 +38,10 @@ The questions I had to answer:
 
 ```
 ┌─────────────────────┐     ┌──────────────────────┐
-│  Browser Extension  │────▶│  Supabase (Backend) │
-│  (Content Script)   │     │  - PostgreSQL        │
-└─────────────────────┘     │  - Auth (RLS)        │
-                            │  - Edge Functions    │
+│  Browser Extension  │────▶│  Supabase (Backend)  │
+│  (Content Script)   │     │  - PostgreSQL         │
+└─────────────────────┘     │  - Auth (RLS)         │
+                            │  - Edge Functions     │
 ┌─────────────────────┐     └──────────┬───────────┘
 │    Admin Panel      │────────────────┘
 │  (HTML/CSS/JS)      │
@@ -74,7 +82,9 @@ Cold start adds a bit of latency, but the token stays server-side and every call
 
 ## Admin Panel
 
-The panel is a single HTML file with no framework. Intentionally lean so it's fast to load and easy to change.
+![Coffy Farm Admin](assets/admin-panel.png)
+
+The panel is a single HTML file with no framework. Intentionally lean so it's fast to load and easy to change. The screenshot above shows 15 players online simultaneously, with 49 active sessions in the last 24 hours.
 
 | Tab | What it does |
 |---|---|
@@ -105,7 +115,7 @@ A few decisions worth noting:
 
 ## Results
 
-- Multiple active paying subscribers
+- 49 active sessions in a single day, 15 simultaneous online users at peak
 - Full visibility into live sessions across timezones
 - Zero server costs (Supabase free tier covered the load)
 - Discord communication handled entirely from the admin panel
