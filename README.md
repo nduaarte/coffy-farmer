@@ -15,7 +15,7 @@ Coffy Farmer started as a browser extension to automate repetitive farming in Wo
 
 ## The Extension
 
-![Coffy Farmer Extension](assets/extension.png)
+![Coffy Farmer Extension](https://raw.githubusercontent.com/nduaarte/coffy-farmer/main/assets/extension.png)
 
 The extension runs directly in the browser alongside the game. Users authenticate with a ticket code, choose their region and farm mode, and hit Start. The XP ranking updates in real time, showing where each player sits in the last 7 days. Ticket validation happens on load and shows the status and remaining days right in the UI.
 
@@ -82,7 +82,7 @@ Cold start adds a bit of latency, but the token stays server-side and every call
 
 ## Admin Panel
 
-![Coffy Farm Admin](assets/admin-panel.png)
+![Coffy Farm Admin](https://github.com/nduaarte/coffy-farmer/blob/main/assets/admin_panel.png)
 
 The panel is a single HTML file with no framework. Intentionally lean so it's fast to load and easy to change. The screenshot above shows 15 players online simultaneously, with 49 active sessions in the last 24 hours.
 
